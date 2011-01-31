@@ -300,6 +300,48 @@ take any required and optional arguments and call the associated Twitter method.
   []
   (comp #(:content %) status-handler))
 
+(defmacro def-list-method
+  [sym twitter-method]
+  `(defn ~sym
+     [screen-name#]
+     (loop [lists# []
+            response# (~twitter-method screen-name# :cursor "-1")]
+       (let [lists# (concat lists# (:lists response#))]
+         (if (= 0 (:next_cursor response#))
+           lists#
+           (recur lists#
+                  (~twitter-method screen-name# :cursor (:next_cursor_str response#))))))))
+
+(def-twitter-method lists
+  :get
+  "api.twitter.com/1/lists.json"
+  [:user]
+  [:cursor]
+  (comp :content status-handler))
+
+(def-twitter-method list-memberships
+  :get
+  "api.twitter.com/1/lists/memberships.json"
+  [:user]
+  [:cursor]
+  (comp :content status-handler))
+
+(def-list-method all-list-memberships list-memberships)
+
+(def-twitter-method list-subscriptions
+  :get
+  "api.twitter.com/1/lists/subscriptions.json"
+  [:user]
+  [:cursor]
+  (comp :content status-handler))
+
+(def-list-method all-list-subscriptions list-subscriptions)
+
+(defn followed-lists
+  [screen-name]
+  (concat (:lists @(future (lists screen-name)))
+          @(future (all-list-subscriptions screen-name))))
+
 (def-twitter-method verify-credentials
   :get
   "api.twitter.com/1/account/verify_credentials.json"
